@@ -45,7 +45,7 @@ class SegmentAnything2ImageModelConfig(fosam.SegmentAnythingModelConfig):
 class _SAM2Predictor(fosam._SAMPredictor):
     def __init__(self, model):
         self.processor = smip.SAM2ImagePredictor(model)
-        self._image_id = None
+        self.image_id = None
         # Create an alias since SAM2ImagePredictor doesn't have predict_torch.
         if not hasattr(self.processor, "predict_torch"):
             self.processor.predict_torch = self.processor.predict
@@ -103,6 +103,44 @@ class _SAM2Predictor(fosam._SAMPredictor):
         )
         return torch.tensor(unnorm_points, dtype=torch.float64), torch.tensor(
             labels, dtype=torch.int
+        )
+
+    def valid_image(self, curr_id):
+        if self.processor._is_image_set:
+            return curr_id == self.image_id
+        return False
+
+    @property
+    def original_size(self):
+        return self.processor._orig_hw[0]
+
+    def predict(
+        self,
+        boxes=None,
+        point_coords=None,
+        point_labels=None,
+        multimask_output=False,
+    ):
+        """Wrapper for ``sam2.sam2_image_predictor.Sam2ImagePredictor._predict``
+
+        Args:
+          point_coords (None): a BxNx2 array of point prompts in (X,Y) pixels
+          point_labels (None): a BxN array of labels for the
+            point prompts. 1 indicates a foreground point and 0 indicates a
+            background point.
+          boxes (None): a Bx4 array of box prompts in XYXY format.
+          multimask_output (False): if true, the model will return three masks.
+
+        Returns:
+          the output masks in BxCxHxW format where C is the number of masks
+          model's prediction in BxC
+          low resolution logits in BxCxHxW where H=W=256
+        """
+        return self.processor._predict(
+            point_coords=point_coords,
+            point_labels=point_labels,
+            boxes=boxes,
+            multimask_output=multimask_output,
         )
 
 
